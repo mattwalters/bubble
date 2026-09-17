@@ -1,0 +1,10 @@
+# Binaries
+/bubble
+*.exe
+*.test
+
+# Bubble state
+.bubble/
+
+# OS files
+.DS_Store
