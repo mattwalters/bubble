@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -153,6 +154,21 @@ func runUp(id, worktreeDir, tierName string) error {
 			return fmt.Errorf("writing compose override %s: %w", overrideFile, err)
 		}
 
+		reqs := cfg.ExtractRequiredPorts()
+		var targetServices []string
+		if len(cfg.Compose.Services) > 0 {
+			targetServices = cfg.Compose.Services
+		} else if len(reqs) > 0 {
+			svcSet := make(map[string]bool)
+			for _, r := range reqs {
+				svcSet[r.Service] = true
+			}
+			for s := range svcSet {
+				targetServices = append(targetServices, s)
+			}
+			sort.Strings(targetServices)
+		}
+
 		// 7c. docker compose up -d --wait
 		composeArgs := []string{
 			"-p", id,
@@ -161,6 +177,8 @@ func runUp(id, worktreeDir, tierName string) error {
 			"--env-file", envFile,
 			"up", "-d", "--wait",
 		}
+		composeArgs = append(composeArgs, targetServices...)
+
 		start := time.Now()
 		if _, err := compose.RunCompose(absDir, composeArgs...); err != nil {
 			return fmt.Errorf("docker compose up: %w", err)
@@ -170,7 +188,6 @@ func runUp(id, worktreeDir, tierName string) error {
 		lacking, _ := compose.ServicesLackingHealthcheck(string(baseData))
 
 		// 7d. Discover host ports
-		reqs := cfg.ExtractRequiredPorts()
 		ports, err := compose.DiscoverAllPorts(absDir, id, baseComposePath, overrideFile, envFile, reqs)
 		if err != nil {
 			return fmt.Errorf("discovering ports: %w", err)

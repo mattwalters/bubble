@@ -38,9 +38,10 @@ type SetupConfig struct {
 
 // ComposeConfig contains docker-compose settings.
 type ComposeConfig struct {
-	File  string                       `toml:"file"`
-	Ports map[string]string            `toml:"ports"`
-	Env   map[string]map[string]string `toml:"env"`
+	File     string                       `toml:"file"`
+	Services []string                     `toml:"services"`
+	Ports    map[string]string            `toml:"ports"`
+	Env      map[string]map[string]string `toml:"env"`
 }
 
 // OpenConfig contains browser open settings.

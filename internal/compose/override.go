@@ -16,8 +16,10 @@ type BaseCompose struct {
 }
 
 type ServiceDef struct {
-	Ports       []any `yaml:"ports"`
-	Healthcheck any   `yaml:"healthcheck"`
+	Image         string `yaml:"image"`
+	Ports         []any  `yaml:"ports"`
+	Healthcheck   any    `yaml:"healthcheck"`
+	ContainerName any    `yaml:"container_name"`
 }
 
 // GenerateOverrideYAML generates the compose-override.yml content.
@@ -35,6 +37,28 @@ func GenerateOverrideYAML(baseComposeContent, bubbleID string, envDirectives map
 		sb.WriteString(fmt.Sprintf("  %s:\n", svcName))
 		sb.WriteString("    labels:\n")
 		sb.WriteString("      bubble.managed: \"true\"\n")
+
+		// Strip fixed container_name so parallel bubbles never collide
+		if svc.ContainerName != nil {
+			sb.WriteString("    container_name: !reset\n")
+		}
+
+		// Provide automatic healthcheck if missing for common databases
+		if svc.Healthcheck == nil {
+			if strings.Contains(svc.Image, "postgres") || strings.Contains(svcName, "postgres") {
+				sb.WriteString("    healthcheck:\n")
+				sb.WriteString("      test: [\"CMD-SHELL\", \"pg_isready -U postgres\"]\n")
+				sb.WriteString("      interval: 1s\n")
+				sb.WriteString("      timeout: 2s\n")
+				sb.WriteString("      retries: 20\n")
+			} else if strings.Contains(svc.Image, "redis") || strings.Contains(svcName, "redis") {
+				sb.WriteString("    healthcheck:\n")
+				sb.WriteString("      test: [\"CMD\", \"redis-cli\", \"ping\"]\n")
+				sb.WriteString("      interval: 1s\n")
+				sb.WriteString("      timeout: 2s\n")
+				sb.WriteString("      retries: 20\n")
+			}
+		}
 
 		// Extract container ports
 		ports := extractTargetPorts(svc.Ports)
