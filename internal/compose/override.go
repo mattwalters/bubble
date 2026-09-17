@@ -101,11 +101,32 @@ func extractTargetPorts(ports []any) []int {
 				targets = append(targets, v)
 			}
 		case string:
-			// Formats: "target", "published:target", "hostIP:published:target/protocol"
-			m := portPattern.FindStringSubmatch(v)
-			if len(m) == 2 {
-				portNum, _ := strconv.Atoi(m[1])
-				if portNum > 0 && !seen[portNum] {
+			s := strings.TrimSpace(v)
+			// Strip protocol suffix like /tcp or /udp
+			if idx := strings.Index(s, "/"); idx != -1 {
+				s = s[:idx]
+			}
+			parts := strings.Split(s, ":")
+			targetStr := parts[len(parts)-1]
+
+			// Handle port range like 8080-8082
+			if strings.Contains(targetStr, "-") {
+				rangeParts := strings.Split(targetStr, "-")
+				if len(rangeParts) == 2 {
+					start, err1 := strconv.Atoi(rangeParts[0])
+					end, err2 := strconv.Atoi(rangeParts[1])
+					if err1 == nil && err2 == nil {
+						for port := start; port <= end; port++ {
+							if !seen[port] {
+								seen[port] = true
+								targets = append(targets, port)
+							}
+						}
+					}
+				}
+			} else {
+				portNum, err := strconv.Atoi(targetStr)
+				if err == nil && portNum > 0 && !seen[portNum] {
 					seen[portNum] = true
 					targets = append(targets, portNum)
 				}
